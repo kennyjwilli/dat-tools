@@ -88,6 +88,33 @@ Acquire and release locks:
   (process-orders))
 ```
 
+#### Understanding Fencing Tokens
+
+In distributed systems, locks can fail in subtle ways. For example:
+
+1. **Process Pauses**: A process holding a lock could pause (GC, network issues, etc.) for longer than the lock expiry time, then resume operation believing it still holds the lock
+2. **Split Brain**: Multiple processes might believe they hold the lock simultaneously due to network partitions or timing issues
+
+Fencing tokens solve these problems. Each time a lock is acquired, a monotonically increasing token is generated. This token serves as a logical timestamp that can be used by shared resources to reject operations from "stale" processes.
+
+**How it works:**
+
+1. When a process acquires a lock, it gets a unique fencing token higher than any previous token
+2. The process includes this token with operations on shared resources
+3. Shared resources track the highest token they've seen
+4. If a resource receives an operation with a token lower than one it's already seen, it rejects the operation
+
+**Common use cases:**
+
+- Protecting distributed database operations
+- Preventing concurrent writes to shared storage
+- Coordinating work across multiple services or workers
+- Ensuring exactly-once semantics in distributed processing
+
+This library provides two ways to use fencing tokens:
+- Automatic inclusion in all transactions (`:divert? true`)
+- Manual inclusion by appending `fence-tx-data` to your transactions
+
 Advanced usage with fencing tokens:
 
 ```clojure
